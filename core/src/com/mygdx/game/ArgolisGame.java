@@ -129,11 +129,19 @@ public class ArgolisGame extends ApplicationAdapter {
 
 				boolean isNWall = true;
 				boolean isWWall = true;
+				boolean isNWWall = true;
+				boolean isNEWall = true;
 				boolean isSWall = true;
 				boolean isEWall = true;
 
 				if(row > 0){ //if not at north edge, check north
 					isNWall = (worldChars[row - 1][col] == '#');
+					if(col > 0){ //if not at west, check nw
+						isNWWall = (worldChars[row - 1][col - 1] == '#');
+					}
+					if(col < worldTiles.length - 1){ //if not at east, check ne
+						isNEWall = (worldChars[row - 1][col + 1] == '#');
+					}
 				}
 				if(col > 0){ //if not at west edge, check west
 					isWWall = (worldChars[row][col - 1] == '#');
@@ -143,6 +151,61 @@ public class ArgolisGame extends ApplicationAdapter {
 				}
 				if(col < worldTiles.length - 1){ //if not at east edge, check east
 					isEWall = (worldChars[row][col + 1] == '#');
+				}
+
+				int tileValue = 0; //bit value to store in tile lookup
+				final int IS_WALL = 1;     // BITMASK - 0000001
+				final int IS_N_WALL = 2;   // BITMASK - 0000010
+				final int IS_E_WALL = 4;   // BITMASK - 0000100
+				final int IS_S_WALL = 8;   // BITMASK - 0001000
+				final int IS_W_WALL = 16;  // BITMASK - 0010000
+				final int IS_NE_WALL = 32; // BITMASK - 0100000
+				final int IS_NW_WALL = 64; // BITMASK - 1000000
+
+				final int CENTER_PATH = 1; // BITMASK - 0000001
+				final int N_PATH = 2;      // BITMASK - 0000010
+				final int E_PATH = 4;      // BITMASK - 0000100
+				final int S_PATH = 8;      // BITMASK - 0001000
+				final int W_PATH = 16;     // BITMASK - 0010000
+				final int NE_PATH = 32;    // BITMASK - 0100000
+				final int NW_PATH = 64;    // BITMASK - 1000000
+				final int SE_PATH = 32;    // BITMASK - 0100000
+				final int SW_PATH = 64;    // BITMASK - 1000000
+				final int N_WALL = 2;      // BITMASK - 0000010
+				final int E_WALL = 4;      // BITMASK - 0000100
+				final int S_WALL = 8;      // BITMASK - 0001000
+				final int W_WALL = 16;     // BITMASK - 0010000
+				final int NE_I_PATH = 32;  // BITMASK - 0100000
+				final int NW_I_PATH = 64;  // BITMASK - 1000000
+				final int NE_E_PATH = 32;  // BITMASK - 0100000
+				final int NW_E_PATH = 64;  // BITMASK - 1000000
+
+				/*
+				 * Values:
+				 * 0 - Center Wall
+				 * 1 - N Wall
+				 *
+				 * 2 - E Wall
+				 * 3 - S Wall
+				 * 4 - W Wall
+				 */
+
+				if(isNWall && !isWWall && !isSWall && !isEWall){ //if only north
+					if(isWall){
+
+					}
+					else{
+
+					}
+				}
+				else if(!isNWall && isWWall && !isSWall && !isEWall){ //if only west
+
+				}
+				else if(!isNWall && !isWWall && isSWall && !isEWall){ //if only south
+
+				}
+				else if(!isNWall && !isWWall && !isSWall && isEWall){ //if only east
+
 				}
             }
         }
@@ -166,27 +229,45 @@ public class ArgolisGame extends ApplicationAdapter {
 		renderer = new OrthogonalTiledMapRenderer(map, 1/16f);
 	}
 
-	private void controlCamera(){
-		if (Gdx.input.isKeyPressed(Input.Keys.LEFT)) {
-			camera.translate(-1, 0, 0);
-		}
-		if (Gdx.input.isKeyPressed(Input.Keys.RIGHT)) {
-			camera.translate(1, 0, 0);
-		}
-		if (Gdx.input.isKeyPressed(Input.Keys.DOWN)) {
-			camera.translate(0, -1, 0);
-		}
-		if (Gdx.input.isKeyPressed(Input.Keys.UP)) {
-			camera.translate(0, 1, 0);
-		}
-	}
-
 	@Override
 	public void resize(int width, int height) {
 		camera.viewportWidth = 30f;
 		camera.viewportHeight = 30f * height/width;
 		camera.update();
 	}
+
+    @Override
+    public void render () {
+        ScreenUtils.clear(0, 0, 0, 1);
+        controlCamera();
+        camera.update();
+        renderer.setView(camera);
+        renderer.render();
+        batch.begin();
+        batch.draw(player, 0, 0);
+        batch.end();
+    }
+
+    @Override
+    public void dispose () {
+        batch.dispose();
+        player.dispose();
+    }
+
+    private void controlCamera(){
+        if (Gdx.input.isKeyPressed(Input.Keys.LEFT)) {
+            camera.translate(-1, 0, 0);
+        }
+        if (Gdx.input.isKeyPressed(Input.Keys.RIGHT)) {
+            camera.translate(1, 0, 0);
+        }
+        if (Gdx.input.isKeyPressed(Input.Keys.DOWN)) {
+            camera.translate(0, -1, 0);
+        }
+        if (Gdx.input.isKeyPressed(Input.Keys.UP)) {
+            camera.translate(0, 1, 0);
+        }
+    }
 
 	public TiledMapTile getRandomCenterFloor(){
 		int tile = (int)(Math.random() * 18); //get random ID value in range of standard floors
@@ -310,22 +391,4 @@ public class ArgolisGame extends ApplicationAdapter {
 
 		return dungeonTileMap.getTile(tile); //return specified texture
     }
-
-	@Override
-	public void render () {
-		ScreenUtils.clear(0, 0, 0, 1);
-		controlCamera();
-		camera.update();
-		renderer.setView(camera);
-		renderer.render();
-		batch.begin();
-		batch.draw(player, 0, 0);
-		batch.end();
-	}
-
-	@Override
-	public void dispose () {
-		batch.dispose();
-		player.dispose();
-	}
 }
