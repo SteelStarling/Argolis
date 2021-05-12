@@ -92,6 +92,15 @@ public class ArgolisGame extends ApplicationAdapter {
 		//create camera
 		camera = new OrthographicCamera(30,30 * (h / w)); //change height to match
 		camera.update();
+
+		interpretWorld("###########\n" +
+				           "##        #\n" +
+				           "##        #\n" +
+				           "##   ##   #\n" +
+				           "##   ##   #\n" +
+				           "##        #\n" +
+				           "##        #\n" +
+				           "####   ####");
 	}
 
 	public void interpretWorld(String str){
@@ -122,15 +131,24 @@ public class ArgolisGame extends ApplicationAdapter {
 			}
 		}
 
-		int[][] worldTiles = new int[worldChars.length][worldChars[0].length]; //create int array
-        for(int row = 0; row < worldTiles.length; row++){
-            for(int col = 0; col < worldTiles[0].length; col++){
+
+		map = new TiledMap();
+		MapLayers mapLayers = map.getLayers();
+		int mapWidth = worldChars[0].length;
+		int mapHeight = worldChars.length;
+		int tileSize = 16;
+		TiledMapTileLayer layer = new TiledMapTileLayer(mapWidth, mapHeight, tileSize, tileSize); //create layer 100x100, 16x16 tiles
+		//loop through and fill layer
+		for(int row = 0; row < mapHeight; row++){
+			for(int col = 0; col < mapWidth; col++){
 				boolean isWall = (worldChars[row][col] == '#'); //get if tile is wall
 
 				boolean isNWall = true;
 				boolean isWWall = true;
 				boolean isNWWall = true;
 				boolean isNEWall = true;
+				boolean isSWWall = true;
+				boolean isSEWall = true;
 				boolean isSWall = true;
 				boolean isEWall = true;
 
@@ -139,89 +157,156 @@ public class ArgolisGame extends ApplicationAdapter {
 					if(col > 0){ //if not at west, check nw
 						isNWWall = (worldChars[row - 1][col - 1] == '#');
 					}
-					if(col < worldTiles.length - 1){ //if not at east, check ne
+					if(col < mapWidth - 1){ //if not at east, check ne
 						isNEWall = (worldChars[row - 1][col + 1] == '#');
 					}
 				}
 				if(col > 0){ //if not at west edge, check west
 					isWWall = (worldChars[row][col - 1] == '#');
 				}
-				if(row < worldTiles.length - 1){ //if not at south edge, check south
+				if(row < mapHeight - 1){ //if not at south edge, check south
 					isSWall = (worldChars[row + 1][col] == '#');
+					if(col > 0){ //if not at west, check sw
+						isSWWall = (worldChars[row + 1][col - 1] == '#');
+					}
+					if(col < mapWidth - 1){ //if not at east, check se
+						isSEWall = (worldChars[row + 1][col + 1] == '#');
+					}
 				}
-				if(col < worldTiles.length - 1){ //if not at east edge, check east
+				if(col < mapWidth - 1){ //if not at east edge, check east
 					isEWall = (worldChars[row][col + 1] == '#');
 				}
 
 				int tileValue = 0; //bit value to store in tile lookup
-				final int IS_WALL = 1;     // BITMASK - 0000001
-				final int IS_N_WALL = 2;   // BITMASK - 0000010
-				final int IS_E_WALL = 4;   // BITMASK - 0000100
-				final int IS_S_WALL = 8;   // BITMASK - 0001000
-				final int IS_W_WALL = 16;  // BITMASK - 0010000
-				final int IS_NE_WALL = 32; // BITMASK - 0100000
-				final int IS_NW_WALL = 64; // BITMASK - 1000000
+				final int IS_WALL =     0b000000001; // BITMASK - 000000001
+				final int IS_N_WALL =   0b000000010; // BITMASK - 000000010
+				final int IS_E_WALL =   0b000000100; // BITMASK - 000000100
+				final int IS_S_WALL =   0b000001000; // BITMASK - 000001000
+				final int IS_W_WALL =   0b000010000; // BITMASK - 000010000
+				final int IS_NE_WALL =  0b000100000; // BITMASK - 000100000
+				final int IS_NW_WALL =  0b001000000; // BITMASK - 001000000
+				final int IS_SE_WALL =  0b010000000; // BITMASK - 010000000
+				final int IS_SW_WALL =  0b100000000; // BITMASK - 100000000
+				final int CHECK_PATH =  0b111100000; // BITMASK to clear corner check values, for checking paths
+				final int CHECK_SOUTH = 0b111110110; // BITMASK to clear all values other than south for checking self-standing south walls
 
-				final int CENTER_PATH = 1; // BITMASK - 0000001
-				final int N_PATH = 2;      // BITMASK - 0000010
-				final int E_PATH = 4;      // BITMASK - 0000100
-				final int S_PATH = 8;      // BITMASK - 0001000
-				final int W_PATH = 16;     // BITMASK - 0010000
-				final int NE_PATH = 32;    // BITMASK - 0100000
-				final int NW_PATH = 64;    // BITMASK - 1000000
-				final int SE_PATH = 32;    // BITMASK - 0100000
-				final int SW_PATH = 64;    // BITMASK - 1000000
-				final int N_WALL = 2;      // BITMASK - 0000010
-				final int E_WALL = 4;      // BITMASK - 0000100
-				final int S_WALL = 8;      // BITMASK - 0001000
-				final int W_WALL = 16;     // BITMASK - 0010000
-				final int NE_I_PATH = 32;  // BITMASK - 0100000
-				final int NW_I_PATH = 64;  // BITMASK - 1000000
-				final int NE_E_PATH = 32;  // BITMASK - 0100000
-				final int NW_E_PATH = 64;  // BITMASK - 1000000
+				final int CENTER_PATH = 0b111100000; // PATHS CAN ONLY BE CHECKED IF CHECK_PATH IS APPLIED!
+				final int N_PATH =      0b111100010;
+				final int E_PATH =      0b111100100;
+				final int S_PATH =      0b111101000;
+				final int W_PATH =      0b111110000;
+				final int NE_PATH =     0b111100110;
+				final int NW_PATH =     0b111110010;
+				final int SE_PATH =     0b111101100;
+				final int SW_PATH =     0b111111000;
+				final int N_WALL =      0b111111101;
+				final int E_WALL =      0b111111011;
+				final int E_WALL_TOP =  0b101111111;
+				final int S_WALL =      0b111110111;
+				final int W_WALL =      0b111101111;
+				final int W_WALL_TOP =  0b011111111;
+				final int NE_WALL =     0b111111001; // NE and NW Walls must also have CHECK_PATH applied!
+				final int NW_WALL =     0b111101101;
+				final int SE_WALL =     0b110111111;
+				final int SW_WALL =     0b111011111;
+				final int CORE_WALL =   0b111111111;
 
-				/*
-				 * Values:
-				 * 0 - Center Wall
-				 * 1 - N Wall
-				 *
-				 * 2 - E Wall
-				 * 3 - S Wall
-				 * 4 - W Wall
-				 */
-
-				if(isNWall && !isWWall && !isSWall && !isEWall){ //if only north
-					if(isWall){
-
-					}
-					else{
-
-					}
+				if(isWall){
+					tileValue = tileValue | IS_WALL;
 				}
-				else if(!isNWall && isWWall && !isSWall && !isEWall){ //if only west
-
+				if(isNWall){
+					tileValue = tileValue | IS_N_WALL;
 				}
-				else if(!isNWall && !isWWall && isSWall && !isEWall){ //if only south
-
+				if(isEWall){
+					tileValue = tileValue | IS_E_WALL;
 				}
-				else if(!isNWall && !isWWall && !isSWall && isEWall){ //if only east
-
+				if(isSWall){
+					tileValue = tileValue | IS_S_WALL;
 				}
-            }
-        }
+				if(isWWall){
+					tileValue = tileValue | IS_W_WALL;
+				}
+				if(isNEWall){
+					tileValue = tileValue | IS_NE_WALL;
+				}
+				if(isNWWall){
+					tileValue = tileValue | IS_NW_WALL;
+				}
+				if(isSEWall){
+					tileValue = tileValue | IS_SE_WALL;
+				}
+				if(isSWWall){
+					tileValue = tileValue | IS_SW_WALL;
+				}
 
-		map = new TiledMap();
-		MapLayers mapLayers = map.getLayers();
-		int mapWidth = worldTiles[0].length;
-		int mapHeight = worldTiles.length;
-		int tileSize = 16;
-		TiledMapTileLayer layer = new TiledMapTileLayer(mapWidth, mapHeight, tileSize, tileSize); //create layer 100x100, 16x16 tiles
-		//loop through and fill layer
-		for(int x = 0; x < mapWidth; x++){
-			for(int y = 0; y < mapHeight; y++){
-				Cell cell = new Cell();
-				cell.setTile(getRandomCenterFloor()); //set cell to random tile
-				layer.setCell(x, y, cell); //set cell on layer
+				Cell cell = new Cell(); //create cell
+
+				if((tileValue & CORE_WALL) == CORE_WALL){
+					cell.setTile(getRandomCenterWall()); //set cell tile
+				}
+				else if((tileValue & W_WALL_TOP) == W_WALL_TOP){
+					cell.setTile(getRandomWWall()); //set cell tile
+				}
+				else if((tileValue & E_WALL_TOP) == E_WALL_TOP){
+					cell.setTile(getRandomEWall()); //set cell tile
+				}
+				else if((tileValue & SW_WALL) == SW_WALL){
+					cell.setTile(getRandomSWWall()); //set cell tile
+				}
+				else if((tileValue & SE_WALL) == SE_WALL){
+					cell.setTile(getRandomSEWall()); //set cell tile
+				}
+				else if(((tileValue | CHECK_PATH) & N_WALL) == N_WALL){
+					cell.setTile(getRandomNWall()); //set cell tile
+				}
+				else if(((tileValue | CHECK_PATH) & E_WALL) == E_WALL){
+					cell.setTile(getRandomEWall()); //set cell tile
+				}
+				else if(((tileValue | CHECK_PATH) & W_WALL) == W_WALL){
+					cell.setTile(getRandomWWall()); //set cell tile
+				}
+				else if(((tileValue | CHECK_PATH) & NW_WALL) == NW_WALL){
+					cell.setTile(getRandomNWWall()); //set cell tile
+				}
+				else if(((tileValue | CHECK_PATH) & NE_WALL) == NE_WALL){
+					cell.setTile(getRandomNEWall()); //set cell tile
+				}
+				else if(((tileValue | CHECK_SOUTH) & S_WALL) == S_WALL){
+					cell.setTile(getRandomSWall()); //set cell tile
+				}
+				else if(((tileValue | CHECK_PATH) & NE_PATH) == NE_PATH){
+					cell.setTile(getRandomNEFloor()); //set cell tile
+				}
+				else if(((tileValue | CHECK_PATH) & NW_PATH) == NW_PATH){
+					cell.setTile(getRandomNWFloor()); //set cell tile
+				}
+				else if(((tileValue | CHECK_PATH) & SE_PATH) == SE_PATH){
+					cell.setTile(getRandomSEFloor()); //set cell tile
+				}
+				else if(((tileValue | CHECK_PATH) & SW_PATH) == SW_PATH){
+					cell.setTile(getRandomSWFloor()); //set cell tile
+				}
+				else if(((tileValue | CHECK_PATH) & N_PATH) == N_PATH){
+					cell.setTile(getRandomNFloor()); //set cell tile
+				}
+				else if(((tileValue | CHECK_PATH) & E_PATH) == E_PATH){
+					cell.setTile(getRandomEFloor()); //set cell tile
+				}
+				else if(((tileValue | CHECK_PATH) & S_PATH) == S_PATH){
+					cell.setTile(getRandomSFloor()); //set cell tile
+				}
+				else if(((tileValue | CHECK_PATH) & W_PATH) == W_PATH){
+					cell.setTile(getRandomWFloor()); //set cell tile
+				}
+				else if(((tileValue | CHECK_PATH) & CENTER_PATH) == CENTER_PATH){
+					cell.setTile(getRandomCenterFloor()); //set cell tile
+				}
+				else{ //if nothing triggers, print error
+					System.out.println("ERROR: BAD PATH TYPE");
+				}
+
+
+				layer.setCell(col, worldChars.length - 1 - row, cell); //set cell on layer
 			}
 		}
 		mapLayers.add(layer); //add layer to layers
@@ -322,25 +407,25 @@ public class ArgolisGame extends ApplicationAdapter {
 		return dungeonTileMap.getTile(tile); //return specified texture
 	}
 
-	public TiledMapTile getRandomNWall(){
+	public TiledMapTile getRandomSWall(){
 		int tile = 33 + (int)(Math.random() * 4); //get random ID value in range of north walls
 
 		return dungeonTileMap.getTile(tile); //return specified texture
 	}
 
-	public TiledMapTile getRandomSWall(){
+	public TiledMapTile getRandomNWall(){
 		int tile = 40 + (int)(Math.random() * 6); //get random ID value in range of south walls
 
 		return dungeonTileMap.getTile(tile); //return specified texture
 	}
 
-	public TiledMapTile getRandomWWall(){
+	public TiledMapTile getRandomEWall(){
 		int tile = 46 + (int)(Math.random() * 4); //get random ID value in range of west walls
 
 		return dungeonTileMap.getTile(tile); //return specified texture
 	}
 
-	public TiledMapTile getRandomEWall(){
+	public TiledMapTile getRandomWWall(){
 		int tile = 50 + (int)(Math.random() * 4); //get random ID value in range of east walls
 
 		return dungeonTileMap.getTile(tile); //return specified texture
