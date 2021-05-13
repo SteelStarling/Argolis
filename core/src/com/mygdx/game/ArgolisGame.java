@@ -39,6 +39,8 @@ public class ArgolisGame extends ApplicationAdapter {
 	public final int W = 6;
 	public final int NW = 7;
 
+	private final float CamSpeed = 0.1f;
+
 	private SpriteBatch batch;
 	private Texture player;
 	private TiledMapTileSet dungeonTileMap;
@@ -56,13 +58,13 @@ public class ArgolisGame extends ApplicationAdapter {
 		float h = Gdx.graphics.getHeight();
 
 		//create tilemap
-		Texture tileMapDungeon = new Texture(Gdx.files.internal("Dungeon_Tileset_Fixed.png")); //get tileMap for dungeon
+		Texture tileMapDungeon = new Texture(Gdx.files.internal("Dungeon_Tileset_Fixed_Extra.png")); //get tileMap for dungeon
 		TextureRegion[][] splitTiles = TextureRegion.split(tileMapDungeon, 16, 16); //split tileMap
 		dungeonTileMap = new TiledMapTileSet(); //setup tileMap
 
         //fill tilemap
         int tileID = 0;
-        for(int row = 0; row < 10; row++) {
+        for(int row = 0; row < 11; row++) {
             for(int col = 0; col < 10; col++) {
                 TiledMapTile t = new StaticTiledMapTile(splitTiles[row][col]); //fill with tiles
                 t.setId(tileID); //set tile ID
@@ -93,14 +95,20 @@ public class ArgolisGame extends ApplicationAdapter {
 		camera = new OrthographicCamera(30,30 * (h / w)); //change height to match
 		camera.update();
 
-		interpretWorld("###########\n" +
-				           "##        #\n" +
-				           "##        #\n" +
-				           "##   ##   #\n" +
-				           "##   ##   #\n" +
-				           "##        #\n" +
-				           "##        #\n" +
-				           "####   ####");
+		interpretWorld(	"##############################\n" +
+							"#  ##  ##   ##  ##  ##   ### #\n" +
+							"#  ##  ##   ##  ##  ##   ### #\n" +
+							"#  ##  ##   ##  ##  ##   ### #\n" +
+							"#  ##  ##   ##  ##  ##   ### #\n" +
+							"## ### ### #### ## ###   ### #\n" +
+							"## ### ### #### ## ###   ### #\n" +
+							"#                            #\n" +
+							"#                            #\n" +
+							"            ######           #\n" +
+							"#           ######           #\n" +
+							"#           ##               #\n" +
+							"#                            #\n" +
+							"##############################");
 	}
 
 	public void interpretWorld(String str){
@@ -195,6 +203,13 @@ public class ArgolisGame extends ApplicationAdapter {
 				final int E_PATH =      0b111100100;
 				final int S_PATH =      0b111101000;
 				final int W_PATH =      0b111110000;
+				final int NS_PATH =     0b111110100;
+				final int WE_PATH =     0b111101010;
+				final int N_END_PATH =  0b111110110;
+				final int E_END_PATH =  0b111111010;
+				final int S_END_PATH =  0b111111100;
+				final int W_END_PATH =  0b111110110;
+				final int SINGLE_PATH = 0b111111110;
 				final int NE_PATH =     0b111100110;
 				final int NW_PATH =     0b111110010;
 				final int SE_PATH =     0b111101100;
@@ -274,6 +289,27 @@ public class ArgolisGame extends ApplicationAdapter {
 				else if(((tileValue | CHECK_SOUTH) & S_WALL) == S_WALL){
 					cell.setTile(getRandomSWall()); //set cell tile
 				}
+				else if(((tileValue | CHECK_PATH) & NS_PATH) == NS_PATH){
+					cell.setTile(getRandomNSFloor()); //set cell tile
+				}
+				else if(((tileValue | CHECK_PATH) & WE_PATH) == WE_PATH){
+					cell.setTile(getRandomWEFloor()); //set cell tile
+				}
+				else if(((tileValue | CHECK_PATH) & N_END_PATH) == N_END_PATH){
+					cell.setTile(getRandomNEndFloor()); //set cell tile
+				}
+				else if(((tileValue | CHECK_PATH) & W_END_PATH) == W_END_PATH){
+					cell.setTile(getRandomWEndFloor()); //set cell tile
+				}
+				else if(((tileValue | CHECK_PATH) & S_END_PATH) == S_END_PATH){
+					cell.setTile(getRandomSEndFloor()); //set cell tile
+				}
+				else if(((tileValue | CHECK_PATH) & E_END_PATH) == E_END_PATH){
+					cell.setTile(getRandomEEndFloor()); //set cell tile
+				}
+				else if(((tileValue | CHECK_PATH) & SINGLE_PATH) == SINGLE_PATH){
+					cell.setTile(getRandomSingleFloor()); //set cell tile
+				}
 				else if(((tileValue | CHECK_PATH) & NE_PATH) == NE_PATH){
 					cell.setTile(getRandomNEFloor()); //set cell tile
 				}
@@ -341,16 +377,16 @@ public class ArgolisGame extends ApplicationAdapter {
 
     private void controlCamera(){
         if (Gdx.input.isKeyPressed(Input.Keys.LEFT)) {
-            camera.translate(-1, 0, 0);
+            camera.translate(-CamSpeed, 0, 0);
         }
         if (Gdx.input.isKeyPressed(Input.Keys.RIGHT)) {
-            camera.translate(1, 0, 0);
+            camera.translate(CamSpeed, 0, 0);
         }
         if (Gdx.input.isKeyPressed(Input.Keys.DOWN)) {
-            camera.translate(0, -1, 0);
+            camera.translate(0, -CamSpeed, 0);
         }
         if (Gdx.input.isKeyPressed(Input.Keys.UP)) {
-            camera.translate(0, 1, 0);
+            camera.translate(0, CamSpeed, 0);
         }
     }
 
@@ -403,6 +439,12 @@ public class ArgolisGame extends ApplicationAdapter {
 
 	public TiledMapTile getRandomSEFloor(){
 		int tile = 31; //get random ID value in range of SE floors
+
+		return dungeonTileMap.getTile(tile); //return specified texture
+	}
+
+	public TiledMapTile getRandomCenterWall(){
+		int tile = 57; //get random ID value in range of center walls
 
 		return dungeonTileMap.getTile(tile); //return specified texture
 	}
@@ -471,9 +513,45 @@ public class ArgolisGame extends ApplicationAdapter {
 		return dungeonTileMap.getTile(tile); //return specified texture
 	}
 
-    public TiledMapTile getRandomCenterWall(){
-		int tile = 57; //get random ID value in range of center walls
+    public TiledMapTile getRandomNEndFloor(){
+		int tile = 106; //get random ID value in range of center walls
 
 		return dungeonTileMap.getTile(tile); //return specified texture
     }
+
+	public TiledMapTile getRandomEEndFloor(){
+		int tile = 105; //get random ID value in range of center walls
+
+		return dungeonTileMap.getTile(tile); //return specified texture
+	}
+
+	public TiledMapTile getRandomSEndFloor(){
+		int tile = 107; //get random ID value in range of center walls
+
+		return dungeonTileMap.getTile(tile); //return specified texture
+	}
+
+	public TiledMapTile getRandomWEndFloor(){
+		int tile = 104; //get random ID value in range of center walls
+
+		return dungeonTileMap.getTile(tile); //return specified texture
+	}
+
+	public TiledMapTile getRandomNSFloor(){
+		int tile = 100 + (int)(Math.random() * 2); //get random ID value in range of NS paths
+
+		return dungeonTileMap.getTile(tile); //return specified texture
+	}
+
+	public TiledMapTile getRandomWEFloor(){
+		int tile = 102 + (int)(Math.random() * 2); //get random ID value in range of WE paths
+
+		return dungeonTileMap.getTile(tile); //return specified texture
+	}
+
+	public TiledMapTile getRandomSingleFloor(){
+		int tile = 108 + (int)(Math.random() * 2); //get random ID value in range of WE paths
+
+		return dungeonTileMap.getTile(tile); //return specified texture
+	}
 }
