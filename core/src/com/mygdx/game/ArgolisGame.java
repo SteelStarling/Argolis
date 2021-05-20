@@ -1,13 +1,11 @@
 package com.mygdx.game;
 
-import com.badlogic.gdx.ApplicationAdapter;
-import com.badlogic.gdx.Gdx;
-import com.badlogic.gdx.Input;
-import com.badlogic.gdx.Game;
+import com.badlogic.gdx.*;
 import com.badlogic.gdx.audio.Music;
 import com.badlogic.gdx.audio.Sound;
 import com.badlogic.gdx.graphics.OrthographicCamera;
 import com.badlogic.gdx.graphics.Texture;
+import com.badlogic.gdx.graphics.g2d.Sprite;
 import com.badlogic.gdx.graphics.g2d.SpriteBatch;
 import com.badlogic.gdx.graphics.g2d.BitmapFont;
 import com.badlogic.gdx.graphics.*;
@@ -27,7 +25,7 @@ import com.badlogic.gdx.maps.objects.RectangleMapObject;
 import com.badlogic.gdx.maps.tiled.tiles.StaticTiledMapTile;
 import java.lang.Math;
 
-public class ArgolisGame extends ApplicationAdapter {
+public class ArgolisGame extends ApplicationAdapter implements InputProcessor {
 
 	//setup final values to relate to each direction
 	public final int N = 0;
@@ -39,19 +37,26 @@ public class ArgolisGame extends ApplicationAdapter {
 	public final int W = 6;
 	public final int NW = 7;
 
-	private final float CamSpeed = 0.1f;
+	private final float CamSpeed = 1f;
 
 	private SpriteBatch batch;
 	private Texture player;
+	private Texture playerTextureMap;
+	private TextureRegion[][] realPlayerTextures;
+	private Sprite realPlayer;
 	private TiledMapTileSet dungeonTileMap;
 	private TiledMap map;
 	private OrthogonalTiledMapRenderer renderer;
 	private OrthographicCamera camera;
+	private int playerX = 0;
+	private int playerY = 0;
 
 	@Override
 	public void create () {
 		batch = new SpriteBatch();
 		player = new Texture(Gdx.files.internal("BasicLad.png"));
+		playerTextureMap = new Texture(Gdx.files.internal("Dungeon_Character_2.png"));
+		realPlayerTextures = TextureRegion.split(playerTextureMap, 16, 16); //row 0, col 6
 
 		//get game size
 		float w = Gdx.graphics.getWidth();
@@ -95,6 +100,13 @@ public class ArgolisGame extends ApplicationAdapter {
 		camera = new OrthographicCamera(30,30 * (h / w)); //change height to match
 		camera.update();
 
+		//create player sprite at center
+		realPlayer = new Sprite(realPlayerTextures[0][6]); //create player to draw
+		realPlayer.setScale((w / 30) / 16);
+		realPlayer.setOriginCenter(); //set sprite origin to center of sprite
+		realPlayer.setPosition(w / 2, h / 2); //set to center
+
+
 		interpretWorld(	"##############################\n" +
 							"#  ##  ##   ##  ##  ##   ### #\n" +
 							"#  ##  ##   ##  ##  ##   ### #\n" +
@@ -104,11 +116,13 @@ public class ArgolisGame extends ApplicationAdapter {
 							"## ### ### #### ## ###   ### #\n" +
 							"#                            #\n" +
 							"#                            #\n" +
-							"            ######           #\n" +
+							"   @        ######           #\n" +
 							"#           ######           #\n" +
 							"#           ##               #\n" +
 							"#                            #\n" +
 							"##############################");
+
+		Gdx.input.setInputProcessor(this);
 	}
 
 	public void interpretWorld(String str){
@@ -146,6 +160,9 @@ public class ArgolisGame extends ApplicationAdapter {
 		int mapHeight = worldChars.length;
 		int tileSize = 16;
 		TiledMapTileLayer layer = new TiledMapTileLayer(mapWidth, mapHeight, tileSize, tileSize); //create layer 100x100, 16x16 tiles
+		layer.setName("mainLayer");
+		TiledMapTileLayer playerLayer = new TiledMapTileLayer(mapWidth, mapHeight, tileSize, tileSize); //create layer 100x100, 16x16 tiles
+		playerLayer.setName("playerLayer");
 		//loop through and fill layer
 		for(int row = 0; row < mapHeight; row++){
 			for(int col = 0; col < mapWidth; col++){
@@ -256,6 +273,14 @@ public class ArgolisGame extends ApplicationAdapter {
 
 				Cell cell = new Cell(); //create cell
 
+				if(worldChars[row][col] == '@'){ //if player, set tile to player
+					Cell playerCell = new Cell();
+					playerCell.setTile(new StaticTiledMapTile(realPlayerTextures[0][6])); //set tile
+					playerLayer.setCell(col, worldChars.length - 1 - row, playerCell); //add to layer
+					playerX = col;
+					playerY = worldChars.length - 1 - row;
+				}
+
 				if((tileValue & CORE_WALL) == CORE_WALL){
 					cell.setTile(getRandomCenterWall()); //set cell tile
 				}
@@ -346,6 +371,7 @@ public class ArgolisGame extends ApplicationAdapter {
 			}
 		}
 		mapLayers.add(layer); //add layer to layers
+		mapLayers.add(playerLayer); //add player layer
 
 		renderer = new OrthogonalTiledMapRenderer(map, 1/16f);
 	}
@@ -360,12 +386,18 @@ public class ArgolisGame extends ApplicationAdapter {
     @Override
     public void render () {
         ScreenUtils.clear(0, 0, 0, 1);
-        controlCamera();
+        //controlCamera();
+		//movePlayer();
         camera.update();
         renderer.setView(camera);
         renderer.render();
         batch.begin();
         batch.draw(player, 0, 0);
+
+		//float w = Gdx.graphics.getWidth();
+		//float h = Gdx.graphics.getHeight();
+
+		//realPlayer.draw(batch);
         batch.end();
     }
 
@@ -375,102 +407,144 @@ public class ArgolisGame extends ApplicationAdapter {
         player.dispose();
     }
 
+//    private void movePlayer(){
+//		if (Gdx.input.isKeyPressed(Input.Keys.LEFT)) {
+//			MapLayers layers = this.map.getLayers();
+//			TiledMapTileLayer mainLayer = (TiledMapTileLayer)layers.get("mainLayer");
+//			boolean isMove = (boolean)mainLayer.getCell(playerX - 1, playerY).getTile().getProperties().get("walkable"); //get left cell walkability
+//			if(isMove){
+//				TiledMapTileLayer playerLayer = (TiledMapTileLayer)layers.get("playerLayer");
+//				playerLayer.setCell(playerX - 1, playerY, playerLayer.getCell(playerX, playerY)); //copy player
+//				playerLayer.setCell(playerX, playerY, new Cell()); //erase previous player
+//				this.playerX = playerX - 1;
+//			}
+//		}
+//		if (Gdx.input.isKeyPressed(Input.Keys.RIGHT)) {
+//			MapLayers layers = this.map.getLayers();
+//			TiledMapTileLayer mainLayer = (TiledMapTileLayer)layers.get("mainLayer");
+//			boolean isMove = (boolean)mainLayer.getCell(playerX + 1, playerY).getTile().getProperties().get("walkable"); //get right cell walkability
+//			if(isMove){
+//				TiledMapTileLayer playerLayer = (TiledMapTileLayer)layers.get("playerLayer");
+//				playerLayer.setCell(playerX + 1, playerY, playerLayer.getCell(playerX, playerY)); //copy player
+//				playerLayer.setCell(playerX, playerY, new Cell()); //erase previous player
+//				this.playerX = playerX + 1;
+//			}
+//		}
+//		if (Gdx.input.isKeyPressed(Input.Keys.DOWN)) {
+//			MapLayers layers = this.map.getLayers();
+//			TiledMapTileLayer mainLayer = (TiledMapTileLayer)layers.get("mainLayer");
+//			boolean isMove = (boolean)mainLayer.getCell(playerX, playerY - 1).getTile().getProperties().get("walkable"); //get down cell walkability
+//			if(isMove){
+//				TiledMapTileLayer playerLayer = (TiledMapTileLayer)layers.get("playerLayer");
+//				playerLayer.setCell(playerX, playerY - 1, playerLayer.getCell(playerX, playerY)); //copy player
+//				playerLayer.setCell(playerX, playerY, new Cell()); //erase previous player
+//				this.playerY = playerY - 1;
+//			}
+//		}
+//		if (Gdx.input.isKeyPressed(Input.Keys.UP)) {
+//			MapLayers layers = this.map.getLayers();
+//			TiledMapTileLayer mainLayer = (TiledMapTileLayer)layers.get("mainLayer");
+//			boolean isMove = (boolean)mainLayer.getCell(playerX, playerY + 1).getTile().getProperties().get("walkable"); //get down cell walkability
+//			if(isMove){
+//				TiledMapTileLayer playerLayer = (TiledMapTileLayer)layers.get("playerLayer");
+//				playerLayer.setCell(playerX, playerY + 1, playerLayer.getCell(playerX, playerY)); //copy player
+//				playerLayer.setCell(playerX, playerY, new Cell()); //erase previous player
+//				this.playerY = playerY + 1;
+//			}
+//		}
+//	}
+
     private void controlCamera(){
-        if (Gdx.input.isKeyPressed(Input.Keys.LEFT)) {
+        if (Gdx.input.isKeyPressed(Input.Keys.J)) {
             camera.translate(-CamSpeed, 0, 0);
         }
-        if (Gdx.input.isKeyPressed(Input.Keys.RIGHT)) {
+        if (Gdx.input.isKeyPressed(Input.Keys.L)) {
             camera.translate(CamSpeed, 0, 0);
         }
-        if (Gdx.input.isKeyPressed(Input.Keys.DOWN)) {
+        if (Gdx.input.isKeyPressed(Input.Keys.K)) {
             camera.translate(0, -CamSpeed, 0);
         }
-        if (Gdx.input.isKeyPressed(Input.Keys.UP)) {
+        if (Gdx.input.isKeyPressed(Input.Keys.I)) {
             camera.translate(0, CamSpeed, 0);
         }
     }
 
+    public TiledMapTile getWalkableTile(int tile, boolean walkable){
+		TiledMapTile t = dungeonTileMap.getTile(tile);
+
+		MapProperties mapDat = t.getProperties(); //get tile properties
+		mapDat.put("walkable", walkable); //set walkability
+		return t; //return final value
+	}
+
 	public TiledMapTile getRandomCenterFloor(){
 		int tile = (int)(Math.random() * 18); //get random ID value in range of standard floors
-		return dungeonTileMap.getTile(tile); //return specified texture
+		return getWalkableTile(tile, true);
 	}
 
 	public TiledMapTile getRandomNFloor(){
 		int tile = 20 + (int)(Math.random() * 6); //get random ID value in range of north floors
-
-		return dungeonTileMap.getTile(tile); //return specified texture
+		return getWalkableTile(tile, true);
 	}
 
 	public TiledMapTile getRandomSFloor(){
 		int tile = 18 + (int)(Math.random() * 2); //get random ID value in range of south floors
-
-		return dungeonTileMap.getTile(tile); //return specified texture
+		return getWalkableTile(tile, true);
 	}
 
 	public TiledMapTile getRandomEFloor(){
 		int tile = 27; //get random ID value in range of east floors
-
-		return dungeonTileMap.getTile(tile); //return specified texture
+		return getWalkableTile(tile, true);
 	}
 
 	public TiledMapTile getRandomWFloor(){
 		int tile = 26; //get random ID value in range of west floors
-
-		return dungeonTileMap.getTile(tile); //return specified texture
+		return getWalkableTile(tile, true);
 	}
 
 	public TiledMapTile getRandomNWFloor(){
 		int tile = 28; //get random ID value in range of NW floors
-
-		return dungeonTileMap.getTile(tile); //return specified texture
+		return getWalkableTile(tile, true);
 	}
 
 	public TiledMapTile getRandomNEFloor(){
 		int tile = 29; //get random ID value in range of NE floors
-
-		return dungeonTileMap.getTile(tile); //return specified texture
+		return getWalkableTile(tile, true);
 	}
 
 	public TiledMapTile getRandomSWFloor(){
 		int tile = 30; //get random ID value in range of SW floors
-
-		return dungeonTileMap.getTile(tile); //return specified texture
+		return getWalkableTile(tile, true);
 	}
 
 	public TiledMapTile getRandomSEFloor(){
 		int tile = 31; //get random ID value in range of SE floors
-
-		return dungeonTileMap.getTile(tile); //return specified texture
+		return getWalkableTile(tile, true);
 	}
 
 	public TiledMapTile getRandomCenterWall(){
 		int tile = 57; //get random ID value in range of center walls
-
-		return dungeonTileMap.getTile(tile); //return specified texture
+		return getWalkableTile(tile, false);
 	}
 
 	public TiledMapTile getRandomSWall(){
 		int tile = 33 + (int)(Math.random() * 4); //get random ID value in range of north walls
-
-		return dungeonTileMap.getTile(tile); //return specified texture
+		return getWalkableTile(tile, false);
 	}
 
 	public TiledMapTile getRandomNWall(){
 		int tile = 40 + (int)(Math.random() * 6); //get random ID value in range of south walls
-
-		return dungeonTileMap.getTile(tile); //return specified texture
+		return getWalkableTile(tile, false);
 	}
 
 	public TiledMapTile getRandomEWall(){
 		int tile = 46 + (int)(Math.random() * 4); //get random ID value in range of west walls
-
-		return dungeonTileMap.getTile(tile); //return specified texture
+		return getWalkableTile(tile, false);
 	}
 
 	public TiledMapTile getRandomWWall(){
 		int tile = 50 + (int)(Math.random() * 4); //get random ID value in range of east walls
-
-		return dungeonTileMap.getTile(tile); //return specified texture
+		return getWalkableTile(tile, false);
 	}
 
 	/**
@@ -479,8 +553,7 @@ public class ArgolisGame extends ApplicationAdapter {
 	 */
 	public TiledMapTile getRandomNEWall(){
 		int tile = 55 + (int)(Math.random() * 2); //get random ID value in range of NE walls
-
-		return dungeonTileMap.getTile(tile); //return specified texture
+		return getWalkableTile(tile, false);
 	}
 
 	/**
@@ -489,8 +562,7 @@ public class ArgolisGame extends ApplicationAdapter {
 	 */
 	public TiledMapTile getRandomNWWall(){
 		int tile = 38 + (int)(Math.random() * 2); //get random ID value in range of NW walls
-
-		return dungeonTileMap.getTile(tile); //return specified texture
+		return getWalkableTile(tile, false);
 	}
 
 	/**
@@ -499,8 +571,7 @@ public class ArgolisGame extends ApplicationAdapter {
 	 */
 	public TiledMapTile getRandomSEWall(){
 		int tile = 37; //get random ID value in range of SE walls
-
-		return dungeonTileMap.getTile(tile); //return specified texture
+		return getWalkableTile(tile, false);
 	}
 
 	/**
@@ -509,49 +580,153 @@ public class ArgolisGame extends ApplicationAdapter {
 	 */
 	public TiledMapTile getRandomSWWall(){
 		int tile = 54; //get random ID value in range of SW walls
-
-		return dungeonTileMap.getTile(tile); //return specified texture
+		return getWalkableTile(tile, false);
 	}
 
     public TiledMapTile getRandomNEndFloor(){
 		int tile = 106; //get random ID value in range of center walls
-
-		return dungeonTileMap.getTile(tile); //return specified texture
+		return getWalkableTile(tile, true);
     }
 
 	public TiledMapTile getRandomEEndFloor(){
 		int tile = 105; //get random ID value in range of center walls
-
-		return dungeonTileMap.getTile(tile); //return specified texture
+		return getWalkableTile(tile, true);
 	}
 
 	public TiledMapTile getRandomSEndFloor(){
 		int tile = 107; //get random ID value in range of center walls
-
-		return dungeonTileMap.getTile(tile); //return specified texture
+		return getWalkableTile(tile, true);
 	}
 
 	public TiledMapTile getRandomWEndFloor(){
 		int tile = 104; //get random ID value in range of center walls
-
-		return dungeonTileMap.getTile(tile); //return specified texture
+		return getWalkableTile(tile, true);
 	}
 
 	public TiledMapTile getRandomNSFloor(){
 		int tile = 100 + (int)(Math.random() * 2); //get random ID value in range of NS paths
-
-		return dungeonTileMap.getTile(tile); //return specified texture
+		return getWalkableTile(tile, true);
 	}
 
 	public TiledMapTile getRandomWEFloor(){
 		int tile = 102 + (int)(Math.random() * 2); //get random ID value in range of WE paths
-
-		return dungeonTileMap.getTile(tile); //return specified texture
+		return getWalkableTile(tile, true);
 	}
 
 	public TiledMapTile getRandomSingleFloor(){
 		int tile = 108 + (int)(Math.random() * 2); //get random ID value in range of WE paths
+		return getWalkableTile(tile, true);
+	}
 
-		return dungeonTileMap.getTile(tile); //return specified texture
+	@Override
+	public boolean keyDown(int keycode) {
+		if(Gdx.input.isKeyPressed(Input.Keys.LEFT)) {
+			MapLayers layers = this.map.getLayers();
+			TiledMapTileLayer mainLayer = (TiledMapTileLayer)layers.get("mainLayer");
+			if(playerX - 1 < 0){ //check out of bounds
+				return true;
+			}
+			boolean isMove = (boolean)mainLayer.getCell(playerX - 1, playerY).getTile().getProperties().get("walkable"); //get left cell walkability
+			if(isMove){
+				TiledMapTileLayer playerLayer = (TiledMapTileLayer)layers.get("playerLayer");
+				playerLayer.setCell(playerX - 1, playerY, playerLayer.getCell(playerX, playerY)); //copy player
+				playerLayer.setCell(playerX, playerY, new Cell()); //erase previous player
+				this.playerX = playerX - 1;
+				camera.translate(-CamSpeed, 0, 0);
+			}
+		}
+		if (Gdx.input.isKeyPressed(Input.Keys.RIGHT)) {
+			MapLayers layers = this.map.getLayers();
+			TiledMapTileLayer mainLayer = (TiledMapTileLayer)layers.get("mainLayer");
+			if(playerX + 1 >= mainLayer.getWidth()){ //check out of bounds
+				return true;
+			}
+			boolean isMove = (boolean)mainLayer.getCell(playerX + 1, playerY).getTile().getProperties().get("walkable"); //get right cell walkability
+			if(isMove){
+				TiledMapTileLayer playerLayer = (TiledMapTileLayer)layers.get("playerLayer");
+				playerLayer.setCell(playerX + 1, playerY, playerLayer.getCell(playerX, playerY)); //copy player
+				playerLayer.setCell(playerX, playerY, new Cell()); //erase previous player
+				this.playerX = playerX + 1;
+				camera.translate(CamSpeed, 0, 0);
+			}
+		}
+		if (Gdx.input.isKeyPressed(Input.Keys.DOWN)) {
+			MapLayers layers = this.map.getLayers();
+			TiledMapTileLayer mainLayer = (TiledMapTileLayer)layers.get("mainLayer");
+			if(playerY - 1 < 0){ //check out of bounds
+				return true;
+			}
+			boolean isMove = (boolean)mainLayer.getCell(playerX, playerY - 1).getTile().getProperties().get("walkable"); //get down cell walkability
+			if(isMove){
+				TiledMapTileLayer playerLayer = (TiledMapTileLayer)layers.get("playerLayer");
+				playerLayer.setCell(playerX, playerY - 1, playerLayer.getCell(playerX, playerY)); //copy player
+				playerLayer.setCell(playerX, playerY, new Cell()); //erase previous player
+				this.playerY = playerY - 1;
+				camera.translate(0, -CamSpeed, 0);
+			}
+		}
+		if (Gdx.input.isKeyPressed(Input.Keys.UP)) {
+			MapLayers layers = this.map.getLayers();
+			TiledMapTileLayer mainLayer = (TiledMapTileLayer)layers.get("mainLayer");
+			if(playerY + 1 >= mainLayer.getHeight()){ //check out of bounds
+				return true;
+			}
+			boolean isMove = (boolean)mainLayer.getCell(playerX, playerY + 1).getTile().getProperties().get("walkable"); //get down cell walkability
+			if(isMove){
+				TiledMapTileLayer playerLayer = (TiledMapTileLayer)layers.get("playerLayer");
+				playerLayer.setCell(playerX, playerY + 1, playerLayer.getCell(playerX, playerY)); //copy player
+				playerLayer.setCell(playerX, playerY, new Cell()); //erase previous player
+				this.playerY = playerY + 1;
+				camera.translate(0, CamSpeed, 0);
+			}
+		}
+		if (Gdx.input.isKeyPressed(Input.Keys.J)) {
+			camera.translate(-CamSpeed, 0, 0);
+		}
+		if (Gdx.input.isKeyPressed(Input.Keys.L)) {
+			camera.translate(CamSpeed, 0, 0);
+		}
+		if (Gdx.input.isKeyPressed(Input.Keys.K)) {
+			camera.translate(0, -CamSpeed, 0);
+		}
+		if (Gdx.input.isKeyPressed(Input.Keys.I)) {
+			camera.translate(0, CamSpeed, 0);
+		}
+		return true;
+	}
+
+	@Override
+	public boolean keyUp(int keycode) {
+		return false;
+	}
+
+	@Override
+	public boolean keyTyped(char character) {
+		return false;
+	}
+
+	@Override
+	public boolean touchDown(int screenX, int screenY, int pointer, int button) {
+		return false;
+	}
+
+	@Override
+	public boolean touchUp(int screenX, int screenY, int pointer, int button) {
+		return false;
+	}
+
+	@Override
+	public boolean touchDragged(int screenX, int screenY, int pointer) {
+		return false;
+	}
+
+	@Override
+	public boolean mouseMoved(int screenX, int screenY) {
+		return false;
+	}
+
+	@Override
+	public boolean scrolled(float amountX, float amountY) {
+		return false;
 	}
 }
