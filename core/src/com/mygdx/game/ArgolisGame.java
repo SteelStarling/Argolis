@@ -629,7 +629,7 @@ public class ArgolisGame extends ApplicationAdapter implements InputProcessor {
 			boolean isMove = (boolean)mainLayer.getCell(playerX - 1, playerY).getTile().getProperties().get("walkable"); //get left cell walkability
 			if(isMove){
 				TiledMapTileLayer playerLayer = (TiledMapTileLayer)layers.get("playerLayer");
-				playerLayer.setCell(playerX - 1, playerY, playerLayer.getCell(playerX, playerY)); //copy player
+				playerLayer.setCell(playerX - 1, playerY, playerLayer.getCell(playerX, playerY).setFlipHorizontally(true)); //copy player
 				playerLayer.setCell(playerX, playerY, new Cell()); //erase previous player
 				this.playerX = playerX - 1;
 				camera.translate(-CamSpeed, 0, 0);
@@ -644,7 +644,7 @@ public class ArgolisGame extends ApplicationAdapter implements InputProcessor {
 			boolean isMove = (boolean)mainLayer.getCell(playerX + 1, playerY).getTile().getProperties().get("walkable"); //get right cell walkability
 			if(isMove){
 				TiledMapTileLayer playerLayer = (TiledMapTileLayer)layers.get("playerLayer");
-				playerLayer.setCell(playerX + 1, playerY, playerLayer.getCell(playerX, playerY)); //copy player
+				playerLayer.setCell(playerX + 1, playerY, playerLayer.getCell(playerX, playerY).setFlipHorizontally(false)); //copy player
 				playerLayer.setCell(playerX, playerY, new Cell()); //erase previous player
 				this.playerX = playerX + 1;
 				camera.translate(CamSpeed, 0, 0);
